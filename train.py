@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
-
+import torchvision
 from multi_illum import MultiIllum
 from utils import *
 
@@ -22,6 +22,10 @@ def autoexpose(I):
     return I
 
 def main(opts):
+
+    # seed 
+    torch.manual_seed(0)
+    np.random.seed(0)
 
     # tensorboard writer
     check_folder(opts.out)
@@ -52,6 +56,9 @@ def main(opts):
     criterion = torch.nn.L1Loss()
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10)
 
+    # tensorboard counter
+    counter = 1
+
     # training
     for epoch in range(opts.epochs):
         start_time = time()
@@ -69,12 +76,24 @@ def main(opts):
             loss.backward()
             optimizer.step()
 
-            if epoch % opts.print_frequency == 0:
+            if (didx + 1) % opts.print_frequency == 0:
                 end_time = time()
                 time_taken = (end_time - start_time)
                 print("Epoch: [{}]/[{}], Iteration: [{}]/[{}], Loss: {}, Time: {}s".format(epoch + 1, opts.epochs, didx + 1, len(trainloader), loss.item(), time_taken))
-                writer.add_scalar('train/Loss', loss.item(), didx + 1)
-                writer.add_scalar('train/Learning Rate', optimizer.param_groups[0]['lr'], didx + 1)
+                writer.add_scalar('train/Loss', loss.item(), counter)
+                writer.add_scalar('train/Learning Rate', optimizer.param_groups[0]['lr'], counter)
+
+                if (didx + 1) % opts.save_images == 0:
+
+                    input_imgs = torchvision.utils.make_grid(img)
+                    input_probes = torchvision.utils.make_grid(probe)
+                    output_probes = torchvision.utils.make_grid(pred)
+
+                    writer.add_image('train/Input Images', input_imgs, counter)
+                    writer.add_image('train/Input Probes', input_probes, counter)
+                    writer.add_image('train/Output Probes', output_probes, counter)
+
+                counter += 1
 
                 start_time = time()
         
@@ -104,7 +123,8 @@ if __name__ == "__main__":
     parser.add_argument("--learning_rate", type=float, default=2e-3)
     parser.add_argument("--epochs", type=int, default=30)
 
-    parser.add_argument("--print_frequency", type=int, default=1)
+    parser.add_argument("--print_frequency", type=int, default=30)
+    parser.add_argument("--save_images", type=int, default=180)
 
     opts = parser.parse_args()
 
