@@ -21,12 +21,119 @@ conda activate python3
 echo "Environment activated"
 
 path="./data"
-
-batch_size=16
+batch_size=8
 learning_rate=1e-4
-chromesz=256
-model="experiment_1_bs_${batch_size}_lr_${learning_rate}_chsz_${chromesz}"
-out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${model}_hflip"
+loss="l1"
+theta=1.0
+epochs=40
 
-srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz}
- 
+# l1 loss and cropping
+# date=$(date '+%d_%m_%Y_%H_%M_%S');
+# model="${date}_experiment"
+# out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${model}"
+# srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --crop_images --loss_type "l1"
+
+# l1 loss, cropping and shift range
+# date=$(date '+%d_%m_%Y_%H_%M_%S');
+# model="${date}_experiment"
+# out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${model}"
+# srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --crop_images --loss_type "l1" --shift_range
+
+# l1 loss, croppping and masking probes
+# date=$(date '+%d_%m_%Y_%H_%M_%S');
+# model="${date}_experiment"
+# out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${model}"
+# srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --crop_images --mask_probes --loss_type "l1"
+
+# l1 loss, croppping, masking probes and shift range
+chromesz=64
+model="resnet18"
+date=$(date '+%d_%m_%Y_%H_%M_%S');
+experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+model="unet"
+date=$(date '+%d_%m_%Y_%H_%M_%S');
+experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+# l1 loss, croppping, masking probes and shift range
+chromesz=128
+model="resnet18"
+date=$(date '+%d_%m_%Y_%H_%M_%S');
+experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+model="unet"
+date=$(date '+%d_%m_%Y_%H_%M_%S');
+experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+# l1 loss, croppping, masking probes and shift range
+chromesz=256
+model="resnet18"
+date=$(date '+%d_%m_%Y_%H_%M_%S');
+experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+model="unet"
+date=$(date '+%d_%m_%Y_%H_%M_%S');
+experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+# # l1 loss, croppping, masking probes and shift range
+# chromesz=64
+# model="vgg"
+# date=$(date '+%d_%m_%Y_%H_%M_%S');
+# experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+# out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+# srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+# model="original"
+# date=$(date '+%d_%m_%Y_%H_%M_%S');
+# experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+# out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+# srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+# # l1 loss, croppping, masking probes and shift range
+# chromesz=128
+# model="vgg"
+# date=$(date '+%d_%m_%Y_%H_%M_%S');
+# experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+# out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+# srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+# model="original"
+# date=$(date '+%d_%m_%Y_%H_%M_%S');
+# experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+# out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+# srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+# # l1 loss, croppping, masking probes and shift range
+# chromesz=256
+# model="vgg"
+# date=$(date '+%d_%m_%Y_%H_%M_%S');
+# experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+# out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+# srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+# model="original"
+# date=$(date '+%d_%m_%Y_%H_%M_%S');
+# experiment="${date}_experiment_${loss}_${model}_theta_${theta}_ep_${epochs}_bs_${batch_size}_chrome_${chromesz}_no_crop"
+# out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+# srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --mask_probes --shift_range --model ${model} --theta ${theta} --epochs ${epochs}
+
+# l1 loss, croppping, masking probes and shift range
+# model="VGG16"
+# loss="l1"
+# theta=0.1
+# date=$(date '+%d_%m_%Y_%H_%M_%S');
+# experiment="${date}_experiment_${loss}_${model}_theta_${theta}_swap_channels"
+# out="/project/aksoy-lab/datasets/Multi_Illum_Invariance/CMPT726/experiments/${experiment}"
+# srun python train.py -p ${path} -o ${out} --batch_size ${batch_size} --learning_rate ${learning_rate} --chromesz ${chromesz} --loss_type ${loss} --crop_images --mask_probes --shift_range --model ${model} --theta ${theta} --swap_channels

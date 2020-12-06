@@ -26,10 +26,11 @@ def make_encoder(fmaps, fmaps1=None, xysize=None):
   print("%d layer network downsample to %dx%dx%d" % (ndowns, fmaps, xysize, xysize))
   return layers, fmaps, xysize
 
-def make_net_fully_convolutional(*,chromesz, fmaps1, xysize):
+def make_net_fully_convolutional(*, chromesz, fmaps1, xysize):
   layers, fmaps, _ = make_encoder(fmaps=3, fmaps1=fmaps1, xysize=xysize)
-  fmaps_out = chromesz*chromesz*3
+  fmaps_out = chromesz * chromesz * 3
   layers.append(nn.Conv2d(fmaps, fmaps_out, 1, padding=0, bias=True))
+  layers.append(nn.AdaptiveAvgPool2d(1))
 
   ret = nn.Sequential(*layers)
   ret.fully_convolutional = True

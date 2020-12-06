@@ -1,21 +1,21 @@
 import argparse
 import os
-import urllib
 from time import time
+import urllib
 
 import numpy as np
 import torch
-import torchvision
-from tensorboardX import SummaryWriter
+from torch.autograd import Variable
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
+from tensorboardX import SummaryWriter
+import torchvision
 
 import model
 from multi_illum import MultiIllum
-from nets.unet import UnetEnvMap
-from nets.illum_nets import VGG16, ResNet18
 from utils import *
-
+from nets.vgg import VGG16
+from nets.discriminator import Discriminator
 
 def autoexpose(I):
     """ Method to correct exposure
@@ -25,7 +25,7 @@ def autoexpose(I):
         I = I / n
     return I
 
-def evaluate_model(net, loader, device, opts):
+def evaluate_model(net, loader, device):
     net.eval()
     
     l1_metric = AverageMeter()
@@ -38,17 +38,12 @@ def evaluate_model(net, loader, device, opts):
 
     with torch.no_grad():
         for didx, data in enumerate(loader):
-            img, probe, _, _ = data
+            img, probe = data
             img = img.to(device)
             probe = probe.to(device)
 
             pred = net(img)
             pred = pred.reshape(pred.shape[0], 3, opts.chromesz, opts.chromesz)
-
-            if opts.shift_range:
-                img = torch.clamp(img + 0.5, 0, 1)
-                probe = torch.clamp(probe + 0.5, 0, 1)
-                pred = torch.clamp(pred + 0.5, 0, 1)
 
             l1_metric.update(F.l1_loss(pred, probe).item())
             mse_metric.update(F.mse_loss(pred, probe).item())
@@ -73,19 +68,21 @@ def main(opts):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     # model
-    if opts.model == 'vgg':
+    if opts.model == 'VGG16':
         net = VGG16(chromesz=opts.chromesz)
-    if opts.model == 'resnet18':
-        net = ResNet18(chromesz=opts.chromesz)
     elif opts.model == 'original':
         net = model.make_net_fully_convolutional(
                                 chromesz=opts.chromesz,
                                 fmaps1=opts.fmaps1,
                                 xysize=opts.cropsz)
-    elif opts.model == 'unet':
-        net = UnetEnvMap(chromesz=opts.chromesz)
-        
     net.to(device)
+
+    # discriminator
+    dis_net = Discriminator(opts.chromesz)
+    dis_net.to(device)
+
+    # adversarial_loss
+    adversarial_loss = torch.nn.MSELoss()
 
     # dataloader
     # def __init__(self, datapath: str, cropx: int, cropy: int, probe_size: int, shift_range: bool = False, is_train: bool = True, crop_images: bool = False, mask_probes: bool = False):
@@ -100,6 +97,8 @@ def main(opts):
 
     # optimizer and criterion
     optimizer = torch.optim.Adam(net.parameters(), lr=opts.learning_rate)
+    d_optimizer = torch.optim.Adam(dis_net.parameters(), lr=opts.learning_rate)
+
     if opts.loss_type == 'mse':
         criterion = torch.nn.MSELoss()
     elif opts.loss_type == 'l1':
@@ -122,10 +121,18 @@ def main(opts):
     for epoch in range(opts.epochs):
         start_time = time()
         net.train()
+        dis_net.train()
+
         for didx, data in enumerate(trainloader):
-            img, probe, _, _ = data
+            img, probe = data
             img = img.to(device)
             probe = probe.to(device)
+
+            # Adversarial ground truths
+            valid = Variable(torch.Tensor(img.shape[0], 1).fill_(1.0), requires_grad=False).to(device)
+            fake = Variable(torch.Tensor(img.shape[0], 1).fill_(0.0), requires_grad=False).to(device)
+
+            # train illumination estimator
 
             optimizer.zero_grad()
 
@@ -133,18 +140,33 @@ def main(opts):
             pred = pred.reshape(pred.shape[0], 3, opts.chromesz, opts.chromesz)
 
             loss = criterion(pred, probe)
-            loss_edges = torch.mean(gradient_criterion(pred, probe))
             ssim_loss = torch.clamp((1 - ssim(pred, probe)), 0, 1)
-            total_loss = (opts.theta * loss) + (1.0 * loss_edges) + (1.0 * ssim_loss)
+            g_loss = adversarial_loss(dis_net(pred), valid)
+
+            total_loss = (opts.theta * loss) + (1.0 * ssim_loss) + (1.0 * g_loss)
             total_loss.backward()
             optimizer.step()
+
+            # train discriminator
+            d_optimizer.zero_grad()
+            real_loss = adversarial_loss(dis_net(probe), valid)
+            fake_loss = adversarial_loss(dis_net(pred.detach()), fake)
+            d_loss = 0.5 * (real_loss + fake_loss)
+
+            d_loss.backward()
+            d_optimizer.step()
 
             if (didx + 1) % opts.print_frequency == 0:
                 end_time = time()
                 time_taken = (end_time - start_time)
-                print("Epoch: [{}]/[{}], Iteration: [{}]/[{}], Total Loss: {:.4f}, Loss: {:.4f}, SSIM: {:.4f}, Gradient Loss: {:.4f}, Time: {:.2f}s".format(epoch + 1, opts.epochs, 
-                                                                    didx + 1, len(trainloader), total_loss.item(), loss.item(), ssim_loss.item(), loss_edges.item(), time_taken))
-                writer.add_scalar('train/Loss', loss.item(), counter)
+                print("Epoch: [{}]/[{}], Iteration: [{}]/[{}], Total Loss: {:.4f}, Loss: {:.4f}, SSIM: {:.4f}, Generator Loss: {:.4f}, Discriminator Loss: {:.4f}, Time: {:.2f}s".format(epoch + 1, opts.epochs, 
+                                                                    didx + 1, len(trainloader), total_loss.item(), loss.item(), ssim_loss.item(), g_loss.item(), d_loss.item(), time_taken))
+                
+                writer.add_scalar('train/L1', loss.item(), counter)
+                writer.add_scalar('train/SSIM', ssim_loss.item(), counter)
+                writer.add_scalar('train/G Loss', g_loss.item(), counter)
+                writer.add_scalar('train/D Loss', d_loss.item(), counter)
+
                 writer.add_scalar('train/Learning Rate', optimizer.param_groups[0]['lr'], counter)
 
                 if (didx + 1) % opts.save_images == 0:
@@ -172,7 +194,7 @@ def main(opts):
         if (epoch + 1) % opts.validate_every == 0:
             
             eval_start = time()
-            l1_error, rmse_error, psnr_value, ssim_value = evaluate_model(net, valloader, device, opts)
+            l1_error, rmse_error, psnr_value, ssim_value = evaluate_model(net, valloader, device)
             writer.add_scalar('val/mae', l1_error, epoch + 1)
             writer.add_scalar('val/rmse', rmse_error, epoch + 1)
             writer.add_scalar('val/psnr', psnr_value, epoch + 1)

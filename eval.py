@@ -1,112 +1,123 @@
-"""Evaluation code for illumination estimation task.
-
-Usage example:
-
-scene=everett_kitchen7
-mkdir -p eval_output/probe_predict
-for light_dir in `seq 6 7`; do
-  python3 -m probe_predict.eval \
-  --light_dir ${light_dir} \
-  --out eval_output/probe_predict/${scene}_dir${light_dir}.jpg \
-  ${scene}
-done
-
-Last evaluated on PyTorch 1.0.0.dev20181024
-"""
-
 import argparse
 import os
-import urllib
-
-from probe_predict import model
 
 import numpy as np
-import torch as th
+import torch
+from torch.nn import functional as F
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-import multilum
-
-def main():
-  parser = argparse.ArgumentParser()
-
-  parser.add_argument('scene')
-  parser.add_argument('--light_dir', type=int)
-  parser.add_argument('-o', '--out')
-
-  parser.add_argument("--cropx", type=int, default=512)
-  parser.add_argument("--cropy", type=int, default=256)
-
-  parser.add_argument("--cropsz", type=int, default=512)
-  parser.add_argument("--checkpoint", required=False)
-  parser.add_argument("--mip", type=int, default=2)
-  parser.add_argument("--chromesz", type=int, default=64)
-  parser.add_argument("--fmaps1", type=int, default=6)
-  parser.add_argument("--gpu_id", type=int, default=0)
-  opts = parser.parse_args()
-
-  if opts.checkpoint is None:
-    opts.checkpoint = \
-      "checkpoints/probe_predict/t_1547304767_nsteps_000050000.checkpoint"
-    multilum.ensure_checkpoint_downloaded(opts.checkpoint)
-
-  model = SingleImageEvaluator(opts)
-
-  I = multilum.query_images(opts.scene, mip=opts.mip, dirs=opts.light_dir)[0,0]
-
-  # extract crop
-  ox = opts.cropx
-  oy = opts.cropy
-  cropnp = I[oy:oy+opts.cropsz, ox:ox+opts.cropsz]
-
-  # pre process input
-  crop = np.moveaxis(cropnp, 2, 0)
-  crop = crop / 255 - 0.5
-
-  # run model
-  pred = model.forward(crop)
-
-  # post process prediction
-  pred = np.moveaxis(pred, 0, 2) + 0.5
-  pred = (np.clip(autoexpose(pred), 0, 1) * 255).astype('uint8')
-
-  # write results
-  multilum.writejpg(cropnp, "%s.input.jpg" % opts.out)
-  multilum.writejpg(pred, "%s.pred.jpg" % opts.out)
+import model
+from multi_illum import MultiIllum
+from nets.illum_nets import VGG16, ResNet18
+from nets.unet import UnetEnvMap
+from utils import PSNR, SSIM, AverageMeter, check_folder
 
 
+def main(opts):
 
+    # seed
+    torch.manual_seed(0)
+    np.random.seed(0)
 
-def autoexpose(I):
-  n = np.percentile(I[:,:,1], 90)
-  if n > 0:
-    I = I / n
-  return I
+    # tensorboard writer
+    check_folder(opts.out)
 
-class SingleImageEvaluator:
-  def __init__(self, opts):
-    self.net = model.make_net_fully_convolutional(
-        chromesz=opts.chromesz,
-        fmaps1=opts.fmaps1,
-        xysize=opts.cropsz)
-    self.net.cuda()
-    self.net.load_state_dict(th.load(opts.checkpoint))
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-  def forward(self, image):
-    """Accept (3,512,512) image in [-0.5; 0.5] range.
+    # model
+    if opts.model == 'vgg':
+        net = VGG16(chromesz=opts.chromesz)
+    if opts.model == 'resnet18':
+        net = ResNet18(chromesz=opts.chromesz)
+    elif opts.model == 'original':
+        net = model.make_net_fully_convolutional(
+            chromesz=opts.chromesz,
+            fmaps1=opts.fmaps1,
+            xysize=opts.cropsz)
+    elif opts.model == 'unet':
+        net = UnetEnvMap(chromesz=opts.chromesz)
 
-    Returns (3,64,64) image in [-0.5; 0.5] range.
-    """
-    x = image
-    h, w = image.shape[-2:]
+    net.to(device)
 
-    x = th.Tensor(x).view(1, 3, h, w)
-    self.net.zero_grad()
-    with th.no_grad():
-      pred = self.net(th.autograd.Variable(x).cuda())
+    if opts.weights is not None:
+        checkpoint = torch.load(opts.weights)
+        net.load_state_dict(checkpoint)
 
-    pred = pred.view(3, self.net.chromesz, self.net.chromesz)
-    pred = pred.detach().cpu().numpy()
-    return pred
+    # dataloader
+    testset = MultiIllum(
+        datapath=os.path.join(
+            opts.path,
+            'test.txt'),
+        cropx=opts.cropsz,
+        cropy=opts.cropsz,
+        probe_size=opts.chromesz,
+        shift_range=opts.shift_range,
+        is_train=False,
+        crop_images=opts.crop_images,
+        mask_probes=opts.mask_probes)
+    testloader = DataLoader(
+        testset,
+        batch_size=opts.batch_size,
+        shuffle=False,
+        num_workers=5,
+        pin_memory=True)
+
+    net.eval()
+
+    l1_metric = AverageMeter()
+    mse_metric = AverageMeter()
+    psnr_metric = AverageMeter()
+    ssim_metric = AverageMeter()
+
+    ssim = SSIM()
+    psnr = PSNR()
+
+    with torch.no_grad():
+        for didx, data in tqdm(enumerate(testloader), total=len(testloader)):
+            img, probe, _, _ = data
+            img = img.to(device)
+            probe = probe.to(device)
+
+            pred = net(img)
+            pred = pred.reshape(pred.shape[0], 3, opts.chromesz, opts.chromesz)
+
+            if opts.shift_range:
+                img = torch.clamp(img + 0.5, 0, 1)
+                probe = torch.clamp(probe + 0.5, 0, 1)
+                pred = torch.clamp(pred + 0.5, 0, 1)
+
+            l1_metric.update(F.l1_loss(pred, probe).item())
+            mse_metric.update(F.mse_loss(pred, probe).item())
+            psnr_metric.update(psnr(pred, probe).item())
+            ssim_metric.update(ssim(pred, probe).item())
+
+    print("Evaluation metrics: L1: {}, RMSE: {}, PSNR: {}, SSIM: {}".format(
+        l1_metric.avg, np.sqrt(mse_metric.avg), psnr_metric.avg, ssim_metric.avg))
 
 
 if __name__ == "__main__":
-  main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--path', type=str, default='./data')
+    parser.add_argument('-o', '--out', type=str)
+
+    parser.add_argument("--cropx", type=int, default=512)
+    parser.add_argument("--cropy", type=int, default=256)
+
+    parser.add_argument('--weights', type=str, default=None)
+
+    parser.add_argument("--cropsz", type=int, default=512)
+    parser.add_argument("--checkpoint", required=False)
+    parser.add_argument("--chromesz", type=int, default=64)
+    parser.add_argument("--fmaps1", type=int, default=6)
+
+    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--shift_range", action='store_true')
+    parser.add_argument("--crop_images", action='store_true')
+    parser.add_argument("--mask_probes", action='store_true')
+    parser.add_argument("--swap_channels", action='store_true')
+    parser.add_argument("--model", type=str, default="original")
+
+    opts = parser.parse_args()
+
+    main(opts)
