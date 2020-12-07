@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import torch
+from skimage.io import imsave
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -92,6 +93,18 @@ def main(opts):
             psnr_metric.update(psnr(pred, probe).item())
             ssim_metric.update(ssim(pred, probe).item())
 
+            img_path = os.path.join(opts.out, 'img_{}.png'.format(str(didx).zfill(3)))
+            gt_probe_path = os.path.join(opts.out, 'gt_probe_{}.png'.format(str(didx).zfill(3)))
+            pred_probe_path = os.path.join(opts.out, 'pred_probe_{}.png'.format(str(didx).zfill(3)))
+
+            img = (img.squeeze(0).cpu().numpy().transpose(1, 2, 0) * 255.).astype(np.uint8)
+            probe = (probe.squeeze(0).cpu().numpy().transpose(1, 2, 0) * 255.).astype(np.uint8)
+            pred = (pred.squeeze(0).cpu().numpy().transpose(1, 2, 0) * 255.).astype(np.uint8)
+
+            imsave(img_path, img)
+            imsave(gt_probe_path, probe)
+            imsave(pred_probe_path, pred)
+
     print("Evaluation metrics: L1: {}, RMSE: {}, PSNR: {}, SSIM: {}".format(
         l1_metric.avg, np.sqrt(mse_metric.avg), psnr_metric.avg, ssim_metric.avg))
 
@@ -111,7 +124,7 @@ if __name__ == "__main__":
     parser.add_argument("--chromesz", type=int, default=64)
     parser.add_argument("--fmaps1", type=int, default=6)
 
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--shift_range", action='store_true')
     parser.add_argument("--crop_images", action='store_true')
     parser.add_argument("--mask_probes", action='store_true')

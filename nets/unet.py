@@ -13,7 +13,7 @@ def convrelu(in_channels, out_channels, kernel, padding):
 class ResNetUNetEncoder(nn.Module):
 
     def __init__(self):
-        super().__init__()
+        super(ResNetUNetEncoder, self).__init__()
         
         # self.base_model = models.resnet18(pretrained=True)
         self.base_model = resnet18(pretrained=True)
@@ -45,7 +45,7 @@ class ResNetUNetEncoder(nn.Module):
 class ResNetUNetDecoder(nn.Module):
 
     def __init__(self):
-        super().__init__()
+        super(ResNetUNetDecoder, self).__init__()
     
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
@@ -108,19 +108,37 @@ class Feat2Env(nn.Module):
     def __init__(self, chromesz: int = 64):
         super(Feat2Env, self).__init__()
         self.chromesz = chromesz
-        # self.conv = nn.Conv2d(512, (chromesz * chromesz * 3), 1, padding=0, bias=True)
-        # self.ada_pool = nn.AdaptiveAvgPool2d((1, 1))
-        # self.relu = nn.ReLU()
         self.layers = nn.Sequential(*[nn.Conv2d(512, (chromesz * chromesz * 3), 1, padding=0, bias=True), nn.AdaptiveAvgPool2d((1, 1))])
         
     def forward(self, x, env2feat=None):
         size = 512
         
         lighting = x[:, 0:size, :, :].clone()
-        # lighting = self.conv(lighting)  
-        # lighting = self.relu(lighting)
-        # lighting = self.ada_pool(lighting)
         lighting = self.layers(lighting)
+        
+        # env2feat is not None, then we replace the source light features with target features
+        if env2feat is not None:
+            x[:, 0:size, :, :] = env2feat
+            
+        return x, x[:, size:, :, :], lighting
+
+class Feat2EnvRelight(nn.Module):
+    """Class to conver the source scene features to environment map
+    """
+    def __init__(self, chromesz: int = 64):
+        super(Feat2EnvRelight, self).__init__()
+        self.chromesz = chromesz
+        self.conv = nn.Conv2d(512, (chromesz * chromesz * 3), 1, padding=0, bias=True)
+        self.ada_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.relu = nn.ReLU()
+        
+    def forward(self, x, env2feat=None):
+        size = 512
+        
+        lighting = x[:, 0:size, :, :].clone()
+        lighting = self.conv(lighting)  
+        lighting = self.relu(lighting)
+        lighting = self.ada_pool(lighting)
         
         # env2feat is not None, then we replace the source light features with target features
         if env2feat is not None:
@@ -178,7 +196,7 @@ class RelightModel(nn.Module):
         super(RelightModel, self).__init__()
         self.encoder = ResNetUNetEncoder()
         self.decoder = ResNetUNetDecoder()
-        self.feat_to_env = Feat2Env(chromesz=chromesz)
+        self.feat_to_env = Feat2EnvRelight(chromesz=chromesz)
         self.env_to_feat = Env2Feat()
 
     def forward(self, source_img, target_env):
@@ -200,3 +218,14 @@ class RelightModel(nn.Module):
         output = self.decoder(inter_features, skip_connections)
 
         return output, source_light, non_light_features
+
+
+class ResNetUNet(nn.Module):
+    def __init__(self):
+        super(ResNetUNet, self).__init__()
+        self.encoder = ResNetUNetEncoder()
+        self.decoder = ResNetUNetDecoder()
+
+    def forward(self, x):
+        inter_features, skip_connections = self.encoder(x)
+        return self.decoder(inter_features, skip_connections)
