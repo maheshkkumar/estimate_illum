@@ -3,6 +3,7 @@ import os
 import urllib
 from time import time
 
+import model
 import numpy as np
 import torch
 import torchvision
@@ -10,13 +11,12 @@ from tensorboardX import SummaryWriter
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
-import model
+import wandb
 from multi_illum import MultiIllum
-from nets.unet import RelightModel
 from nets.illum_nets import VGG16, ResNet18
+from nets.unet import RelightModel
 from utils import *
 
-import wandb
 
 def autoexpose(I):
     """ Method to correct exposure

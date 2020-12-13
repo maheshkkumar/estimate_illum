@@ -1,6 +1,7 @@
 import argparse
 import os
 
+import model
 import numpy as np
 import torch
 from skimage.io import imsave
@@ -8,7 +9,6 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import model
 from multi_illum import MultiIllum
 from nets.illum_nets import VGG16, ResNet18
 from nets.unet import UnetEnvMap

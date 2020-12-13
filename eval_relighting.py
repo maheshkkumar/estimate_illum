@@ -188,13 +188,13 @@ def main(opts):
                         relit_psnr_metric.update(psnr_value)
                         relit_ssim_metric.update(ssim_value)
 
-                        relighting_images[scene_name].append(
-                            [
-                                (source_img.squeeze(0).cpu().numpy() * 255.).astype(np.uint8),
-                                (target_img.squeeze(0).cpu().numpy() * 255.).astype(np.uint8),
-                                (source_relit.squeeze(0).cpu().numpy() * 255.).astype(np.uint8),
-                                '{}_{}'.format(str(source_idx).zfill(2), str(target_idx).zfill(2))
-                            ])
+                        # relighting_images[scene_name].append(
+                        #     [
+                        #         (source_img.squeeze(0).cpu().numpy() * 255.).astype(np.uint8),
+                        #         (target_img.squeeze(0).cpu().numpy() * 255.).astype(np.uint8),
+                        #         (source_relit.squeeze(0).cpu().numpy() * 255.).astype(np.uint8),
+                        #         '{}_{}'.format(str(source_idx).zfill(2), str(target_idx).zfill(2))
+                        #     ])
 
         print(
             "Evaluation metrics: L1: {}, RMSE: {}, PSNR: {}, SSIM: {}".format(

@@ -1,7 +1,8 @@
 """Pytorch model for illumination estimation task."""
 
-from torch import nn
 import math
+
+from torch import nn
 
 
 def make_encoder(fmaps, fmaps1=None, xysize=None):

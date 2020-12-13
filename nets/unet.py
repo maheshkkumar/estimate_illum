@@ -2,7 +2,9 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torchvision import models
+
 from .resnet import resnet18
+
 
 def convrelu(in_channels, out_channels, kernel, padding):
     return nn.Sequential(

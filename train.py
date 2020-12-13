@@ -10,20 +10,12 @@ from tensorboardX import SummaryWriter
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
-import model
 from multi_illum import MultiIllum
-from nets.unet import UnetEnvMap
+from nets import model
 from nets.illum_nets import VGG16, ResNet18
+from nets.unet import UnetEnvMap
 from utils import *
 
-
-def autoexpose(I):
-    """ Method to correct exposure
-    """
-    n = np.percentile(I[:,:,1], 90)
-    if n > 0:
-        I = I / n
-    return I
 
 def evaluate_model(net, loader, device, opts):
     net.eval()

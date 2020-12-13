@@ -1,6 +1,8 @@
 from torch import nn
 from torchvision import models
+
 from .resnet import resnet18
+
 
 class VGG16(nn.Module):
     def __init__(self, pretrained: bool = True, chromesz: int = 64):
