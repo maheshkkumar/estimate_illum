@@ -10,14 +10,17 @@ class VGG16(nn.Module):
         vgg16 = models.vgg16(pretrained=pretrained)
         features = list(vgg16.features.children())
         self.features = nn.Sequential(*features)
-        layers = [nn.AdaptiveAvgPool2d((1, 1)), 
-                    nn.Conv2d(512, (chromesz * chromesz * 3), 1, padding=0, bias=True)]
+        layers = [
+            nn.AdaptiveAvgPool2d(
+                (1, 1)), nn.Conv2d(
+                512, (chromesz * chromesz * 3), 1, padding=0, bias=True)]
         self.layers = nn.Sequential(*layers)
 
     def forward(self, x):
         x = self.features(x)
         x = self.layers(x)
         return x
+
 
 class ResNet18(nn.Module):
     def __init__(self, pretrained: bool = True, chromesz: int = 64):
@@ -32,8 +35,10 @@ class ResNet18(nn.Module):
         self.layer3 = resnet.layer3
         self.layer4 = resnet.layer4
 
-        layers = [nn.AdaptiveAvgPool2d((1, 1)), 
-                    nn.Conv2d(512, (chromesz * chromesz * 3), 1, padding=0, bias=True)]
+        layers = [
+            nn.AdaptiveAvgPool2d(
+                (1, 1)), nn.Conv2d(
+                512, (chromesz * chromesz * 3), 1, padding=0, bias=True)]
         self.layers = nn.Sequential(*layers)
 
     def forward(self, x):

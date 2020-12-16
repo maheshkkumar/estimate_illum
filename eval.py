@@ -4,12 +4,12 @@ import os
 import model
 import numpy as np
 import torch
+from multi_illum import MultiIllum
 from skimage.io import imsave
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from multi_illum import MultiIllum
 from nets.illum_nets import VGG16, ResNet18
 from nets.unet import UnetEnvMap
 from utils import PSNR, SSIM, AverageMeter, check_folder
@@ -93,13 +93,37 @@ def main(opts):
             psnr_metric.update(psnr(pred, probe).item())
             ssim_metric.update(ssim(pred, probe).item())
 
-            img_path = os.path.join(opts.out, 'img_{}.png'.format(str(didx).zfill(3)))
-            gt_probe_path = os.path.join(opts.out, 'gt_probe_{}.png'.format(str(didx).zfill(3)))
-            pred_probe_path = os.path.join(opts.out, 'pred_probe_{}.png'.format(str(didx).zfill(3)))
+            img_path = os.path.join(
+                opts.out, 'img_{}.png'.format(
+                    str(didx).zfill(3)))
+            gt_probe_path = os.path.join(
+                opts.out, 'gt_probe_{}.png'.format(
+                    str(didx).zfill(3)))
+            pred_probe_path = os.path.join(
+                opts.out, 'pred_probe_{}.png'.format(
+                    str(didx).zfill(3)))
 
-            img = (img.squeeze(0).cpu().numpy().transpose(1, 2, 0) * 255.).astype(np.uint8)
-            probe = (probe.squeeze(0).cpu().numpy().transpose(1, 2, 0) * 255.).astype(np.uint8)
-            pred = (pred.squeeze(0).cpu().numpy().transpose(1, 2, 0) * 255.).astype(np.uint8)
+            img = (
+                img.squeeze(0).cpu().numpy().transpose(
+                    1,
+                    2,
+                    0) *
+                255.).astype(
+                np.uint8)
+            probe = (
+                probe.squeeze(0).cpu().numpy().transpose(
+                    1,
+                    2,
+                    0) *
+                255.).astype(
+                np.uint8)
+            pred = (
+                pred.squeeze(0).cpu().numpy().transpose(
+                    1,
+                    2,
+                    0) *
+                255.).astype(
+                np.uint8)
 
             imsave(img_path, img)
             imsave(gt_probe_path, probe)

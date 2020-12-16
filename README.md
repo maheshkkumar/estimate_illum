@@ -12,11 +12,11 @@ pip install -r requirements.txt
 ```
 
 ### Option 2: Using conda
-This option allows you use conda to setup all the dependencies by using the `environment.yaml` file.
+This option allows you use conda to setup all the dependencies by using the `environment.yml` file.
 ```
 conda create -n illum_est
 conda activate illum_est
-conda env update -f environment.yaml
+conda env update -f environment.yml
 ```
 
 ## Dataset

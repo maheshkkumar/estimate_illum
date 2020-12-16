@@ -61,8 +61,6 @@ class AverageMeter(object):
 
 # Evaluation Metrics
 # Source: https://github.com/huster-wgm/Pytorch-metrics/blob/master/metrics.py
-
-
 class PSNR(object):
     def __init__(self, des="Peak Signal to Noise Ratio"):
         self.des = des

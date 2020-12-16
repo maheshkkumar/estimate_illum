@@ -5,12 +5,12 @@ from time import time
 import numpy as np
 import torch
 import torchvision
+from multi_illum import MultiIllumRelightingBaseline
 from tensorboardX import SummaryWriter
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
 import wandb
-from multi_illum import MultiIllumRelightingBaseline
 from nets.unet import ResNetUNet
 from utils import (PSNR, SSIM, AverageMeter, check_folder, gradient_criterion,
                    save_opts)

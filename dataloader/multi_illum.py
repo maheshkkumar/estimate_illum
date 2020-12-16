@@ -11,9 +11,6 @@ from skimage.io import imread
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-# TODO
-# 1. Exposure correction
-
 
 class MultiIllum(Dataset):
     def __init__(
@@ -178,6 +175,9 @@ class MultiIllum(Dataset):
     def __len__(self):
         return len(self.filenames)
 
+# Dataloader for baseline relighting models
+
+
 class MultiIllumRelightingBaseline(Dataset):
     def __init__(
             self,
@@ -260,15 +260,22 @@ class MultiIllumRelightingBaseline(Dataset):
                     folder) if img.endswith('mip2.jpg')]
                 scene_imgs = []
                 for img in imgs:
-                    # randomly picking a target image to relight the source image
+                    # randomly picking a target image to relight the source
+                    # image
                     neg_imgs = [neg_im for neg_im in imgs if neg_im != img]
                     target_img = np.random.choice(neg_imgs)
-                    scene_imgs.append((opj(folder, img), opj(folder, target_img), opj(folder, 'meta.json')))
+                    scene_imgs.append(
+                        (opj(
+                            folder, img), opj(
+                            folder, target_img), opj(
+                            folder, 'meta.json')))
                 filenames += scene_imgs
             else:
                 source_image = os.path.join(folder, 'dir_5_mip2.jpg')
                 target_image = os.path.join(folder, 'dir_6_mip2.jpg')
-                filenames.append((source_image, target_image, opj(folder, 'meta.json')))
+                filenames.append(
+                    (source_image, target_image, opj(
+                        folder, 'meta.json')))
         return filenames
 
     def _apply_mask(self, img, chrome: dict, gray: dict):
@@ -307,16 +314,18 @@ class MultiIllumRelightingBaseline(Dataset):
 
         img = self.img_transforms(img)
         target_img = self.img_transforms(target_img)
-        
+
         # shift the range of images to be in [-0.5, 0.5]
         if self.shift_range:
             img -= 0.5
             target_img -= 0.5
-        
+
         return img, target_img
 
     def __len__(self):
         return len(self.filenames)
+
+# Dataloader to test relighting
 
 
 class TestMultiIllumRelighting(Dataset):
@@ -387,8 +396,7 @@ class TestMultiIllumRelighting(Dataset):
             with open(self.datapath, 'r') as fp:
                 folders = [folder.rstrip('\n') for folder in fp.readlines()]
         else:
-            folders = [opj(self.datapath, folder)
-                       for folder in os.listdir(self.datapath)]
+            folders = [self.datapath]
         print("Loading {} scene folders".format(len(folders)))
 
         filenames = []
@@ -398,7 +406,6 @@ class TestMultiIllumRelighting(Dataset):
                 folder) if img.endswith('mip2.jpg')]
             scene_imgs = []
             for img in imgs:
-                # randomly picking a target image to relight the source image
                 scene_imgs.append(
                     (opj(
                         folder, img), opj(
@@ -454,35 +461,83 @@ class TestMultiIllumRelighting(Dataset):
     def __len__(self):
         return len(self.filenames)
 
+# Dataloader to test relighting
+
+
+class TestMultiIllumRelightingCustom(Dataset):
+    def __init__(
+            self,
+            datapath: str,
+            shift_range: bool = False
+    ):
+        self.datapath = datapath
+        self.filenames = self._get_files()
+
+        # bool value to shift pixel range from [0, 1] to [-0.5, 0,5]
+        self.shift_range = shift_range
+        # bool value to choose between cropping and not cropping the training
+
+        self.img_transforms = transforms.Compose(
+            [transforms.Resize((960, 1472)), transforms.ToTensor()])
+
+    def _get_files(self):
+        if os.path.isfile(self.datapath):
+            with open(self.datapath, 'r') as fp:
+                folders = [folder.rstrip('\n') for folder in fp.readlines()]
+        else:
+            folders = [self.datapath]
+        print("Loading {} scene folders".format(len(folders)))
+
+        filenames = []
+        for folder in folders:
+            # scene images
+            imgs = [img for img in os.listdir(
+                folder) if img.endswith('mip2.jpg')]
+            scene_imgs = []
+            for img in imgs:
+                scene_imgs.append((opj(folder, img)))
+            filenames.append([scene_imgs])
+        print(filenames)
+        return filenames
+
+    def __getitem__(self, index):
+        scene_image_probes = self.filenames[index][0]
+
+        images = [Image.open(img) for img in scene_image_probes]
+        for idx in range(len(images)):
+            print(images[idx].size)
+            # print(np.array(images[idx]).transpose(1, 0, 2).shape)
+            images[idx] = Image.fromarray(
+                np.asarray(
+                    images[idx]).transpose(
+                    1, 0, 2))
+        images = [self.img_transforms(img) for img in images]
+
+        # shift the range of images to be in [-0.5, 0.5]
+        if self.shift_range:
+            print(self.shift_range, "shift range")
+            images = [img - 0.5 for img in images]
+
+        images = torch.stack(images)
+        print(images.shape)
+        return images
+
+    def __len__(self):
+        return len(self.filenames)
+
 
 if __name__ == "__main__":
     from torch.utils.data import DataLoader
 
-    # path = '/project/aksoy-lab/datasets/Multi_Illum_Invariance/test/'
-    path = '/project/aksoy-lab/Mahesh/CMPT_726_Project/data/test.txt'
+    path = './data/test.txt'
     cropx = 512
     cropy = 512
     probe_size = 64
 
-    # dataset = MultiIllum(path, cropx, cropy, probe_size)
-    # dataloader = DataLoader(dataset, batch_size=3)
-
-    # for data in dataloader:
-    #     print(data[0].shape, data[1].shape, data[2].shape, data[3].shape)
-    #     break
-
-    # dataset = TestMultiIllumRelighting(path, cropx, cropy, probe_size)
-    # dataloader = DataLoader(dataset, batch_size=1)
-
-    # for data in dataloader:
-    #     images, probes, scene = data
-    #     print(images.shape, probes.shape, scene[0])
-    #     break
-
-    dataset = MultiIllumRelightingBaseline(path, cropx, cropy, probe_size, random_relight=False)
+    dataset = TestMultiIllumRelighting(path, cropx, cropy, probe_size)
     dataloader = DataLoader(dataset, batch_size=1)
 
     for data in dataloader:
-        source_img, target_img = data
-        print(source_img.shape, target_img.shape)
+        images, probes, scene = data
+        print(images.shape, probes.shape, scene[0])
         break
