@@ -1,10 +1,5 @@
 #!/bin/bash
 
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate illum_est
-echo "Environment activated"
-
-# command line arguments
 path="./data"
 batch_size=2
 learning_rate=1e-4

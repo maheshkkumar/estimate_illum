@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# Your experiment setup logic here
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate python3
-echo "Environment activated"
-
 path="./data"
 batch_size=2
 learning_rate=1e-4

@@ -41,6 +41,8 @@ To train the best model for relighting.
 bash train_relighting.sh
 ```
 
+**Note**: Make necessary changes in the training/eval `.sh` files for specific training/evaluation.
+
 ### Evaluation
 
 To evaluate the model use the appropriate evaluation script. For illumination estimation models:
@@ -53,4 +55,7 @@ For image relighting models:
 bash eval_relighting.sh
 ```
 
+### Acknowledgements
+
+Some of the code is borrowed from [Multi-illumination](https://github.com/lmurmann/multi_illumination).
 
